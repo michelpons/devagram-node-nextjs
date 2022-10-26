@@ -1,8 +1,13 @@
-import type {NextApiRequest, NextApiResponse} from "next";
-import type {RespostaPadraoMsg} from "../../types/RespostaPadraoMsg";
-import type { CadastroRequisicao } from "../../types/CadastroRequisicao"; 
+import type {NextApiRequest, NextApiResponse} from 'next';
+import type {RespostaPadraoMsg} from '../../types/RespostaPadraoMsg';
+import type { CadastroRequisicao } from '../../types/CadastroRequisicao'; 
+import {UsuarioModel} from '../../models/UsuarioModel';
+import {conectarMongoDB} from '../../middlewares/conectarMongoDB';
+import md5 from 'md5';
 
-const endPointCadastro = (req : NextApiRequest, res : NextApiResponse<RespostaPadraoMsg>) => {
+
+const endPointCadastro = 
+    async (req : NextApiRequest, res : NextApiResponse<RespostaPadraoMsg>) => {
 
     if(req.method === 'POST'){
         const usuario = req.body as CadastroRequisicao;
@@ -18,14 +23,28 @@ const endPointCadastro = (req : NextApiRequest, res : NextApiResponse<RespostaPa
             }
         
         if(!usuario.senha || usuario.senha.length < 4){
-            return res.status(400).json({ erro : 'Senha invalido'});
+            return res.status(400).json({ erro : 'Senha invalida'});
         } 
 
-        return res.status(200).json({msg : 'Dados corretos'});
+        // validacao se ja existe usuario com o mesmo email
+        const usuariosComMesmoEmail = UsuarioModel.find({email : usuario.email});
+        if(usuariosComMesmoEmail && (await usuariosComMesmoEmail).length > 0){
+            return res.status(400).json({ erro : 'Usuario ja esxite no Banco de dados!'});
+         }
+
+
+        // salvar no banco de dados
+            const usuarioASerSalvo = {
+                nome : usuario.nome,
+                email : usuario.email,
+                senha : md5(usuario.senha)
+            }
+            await UsuarioModel.create(usuarioASerSalvo);
+            return res.status(200).json({msg : 'Usuarios criado com sucesso '});
 
     }
     return res.status(405).json({erro : 'Metodo informado nao e valido'});
 }
 
-export default endPointCadastro;
+export default conectarMongoDB(endPointCadastro);
 
